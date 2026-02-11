@@ -1,45 +1,61 @@
 # FeeAnomalyTrap (Drosera Proof-of-Concept)
 
 ## Overview
-This trap monitors transaction fees to identify anomalies that exceed a specified threshold. It is critical for ensuring fair and predictable fee structures in decentralized applications.
+This trap monitors sudden changes in the token's total supply to identify anomalies that exceed a specified threshold. It is a proof-of-concept demonstrating the essential Drosera trap pattern using deterministic logic.
 
 ---
 
 ## What It Does
-* Monitors the transaction fees associated with the specified token.
-* Triggers if the fees exceed the defined threshold of 10 ether.
-* It demonstrates the essential Drosera trap pattern using deterministic logic.
+* Monitors the token's total supply changes between consecutive blocks.
+* Triggers if the increase between the current block and previous block exceeds a defined threshold of 10 ether (10e18).
+* Demonstrates the Drosera trap + responder pattern with a deterministic delta calculation.
 
 ---
 
 ## Key Files
 * `src/FeeAnomalyTrap.sol` - The core trap contract containing the monitoring logic.
-* `src/SimpleResponder.sol` - The required external response contract.
+* `src/SimpleResponder.sol` - The external responder contract that receives triggers.
 * `drosera.toml` - The deployment and configuration file.
 
 ---
 
 ## Detection Logic
 
-The trap's core monitoring logic is contained in the deterministic `shouldRespond()` function.
+The trap's core monitoring logic is in the deterministic `shouldRespond()` function:
 
-solidity
-// The AI MUST insert the full, syntax-highlighted Solidity code of the `shouldRespond()` logic here.
-{{ShouldRespondLogic}} 
+```solidity
+function shouldRespond(
+    bytes[] calldata data
+) external pure override returns (bool, bytes memory) {
 
+    if (data.length < 2) {
+        return (false, bytes(""));
+    }
 
----
+    // data[0] = current block
+    // data[1] = previous block
+    CollectOutput memory curr = abi.decode(data[0], (CollectOutput));
+    CollectOutput memory prev = abi.decode(data[1], (CollectOutput));
 
-## 🧪 Implementation Details and Key Concepts
-* **Monitoring Target:** Watching the transaction fees for the token at address 0xFba1bc0E3d54D71Ba55da7C03c7f63D4641921B1.
-* **Deterministic Logic:** The logic is executed off-chain by operators to achieve consensus before a transaction is proposed.
-* **Calculation/Thresholds:** Uses a fixed 10 ether threshold to determine if monitoring should trigger a response.
-* **Response Mechanism:** On trigger, the trap calls the external Responder contract, demonstrating the separation of monitoring and action.
+    // Check if there is an increase
+    if (curr.feeAmount > prev.feeAmount) {
+        uint256 delta = curr.feeAmount - prev.feeAmount;
 
----
+        // Trigger if increase is above threshold
+        if (delta > FEE_THRESHOLD) {
+            return (true, abi.encode(delta));
+        }
+    }
 
-## Test It
-To verify the trap logic using Foundry, run the following command (assuming a test file has been created):
-
-bash
+    return (false, bytes(""));
+}
+🧪 Implementation Details and Key Concepts
+Monitoring Target: Watching changes in token total supply at address 0xFba1bc0E3d54D71Ba55da7C03c7f63D4641921B1.
+Deterministic Logic: Operators execute the logic off-chain to achieve consensus before triggering.
+Thresholds: Uses a fixed 10 ether delta threshold to determine if the trap should trigger.
+Response Mechanism: On trigger, the trap calls the external SimpleResponder contract, passing the detected delta.
+Test It
+To verify the trap logic using Foundry, run:
+Copy code
+Bash
 forge test --match-contract FeeAnomalyTrap

@@ -8,6 +8,7 @@ interface IERC20 {
 }
 
 contract FeeAnomalyTrap is ITrap {
+
     address public constant TOKEN =
         0xFba1bc0E3d54D71Ba55da7C03c7f63D4641921B1;
 
@@ -27,17 +28,27 @@ contract FeeAnomalyTrap is ITrap {
     function shouldRespond(
         bytes[] calldata data
     ) external pure override returns (bool, bytes memory) {
+
         if (data.length < 2) {
             return (false, bytes(""));
         }
 
-        CollectOutput memory prev =
-            abi.decode(data[0], (CollectOutput));
+        // data[0] = current block
+        // data[1] = previous block
         CollectOutput memory curr =
+            abi.decode(data[0], (CollectOutput));
+        CollectOutput memory prev =
             abi.decode(data[1], (CollectOutput));
 
-        if (curr.feeAmount > prev.feeAmount + FEE_THRESHOLD) {
-            return (true, bytes("Fee anomaly detected"));
+        // check if there is an increase first
+        if (curr.feeAmount > prev.feeAmount) {
+
+            uint256 delta = curr.feeAmount - prev.feeAmount;
+
+            // trigger if increase is above threshold
+            if (delta > FEE_THRESHOLD) {
+                return (true, abi.encode(delta));
+            }
         }
 
         return (false, bytes(""));
