@@ -1,33 +1,47 @@
 # FeeAnomalyTrap (Drosera Proof-of-Concept)
 
 ## Overview
-This trap monitors sudden changes in the token's total supply to identify anomalies that exceed a specified threshold. It is a proof-of-concept demonstrating the essential Drosera trap pattern using deterministic logic.
+FeeAnomalyTrap is a Drosera trap that monitors sudden increases in a token's total supply (fee amount) between consecutive blocks.  
+If the increase exceeds a predefined threshold, the trap triggers a responder contract.
+
+This project demonstrates the Drosera trap + responder architecture using deterministic off-chain execution logic.
 
 ---
 
 ## What It Does
-* Monitors the token's total supply changes between consecutive blocks.
-* Triggers if the increase between the current block and previous block exceeds a defined threshold of 10 ether (10e18).
-* Demonstrates the Drosera trap + responder pattern with a deterministic delta calculation.
+
+- Monitors changes in token fee amount between consecutive blocks.
+- Compares current block data with previous block data.
+- Calculates the delta (difference).
+- Triggers if the increase exceeds a fixed threshold (10 ether).
+- Calls an external responder contract when triggered.
+
+---
+
+## Architecture
+
+Trap → Evaluates deterministic delta logic  
+Responder → Receives trigger calls when anomaly detected  
+Operators → Execute deterministic logic off-chain before consensus  
 
 ---
 
 ## Key Files
-* `src/FeeAnomalyTrap.sol` - The core trap contract containing the monitoring logic.
-* `src/SimpleResponder.sol` - The external responder contract that receives triggers.
-* `drosera.toml` - The deployment and configuration file.
+
+- `src/FeeAnomalyTrap.sol` — Core trap contract containing monitoring logic.
+- `src/SimpleResponder.sol` — External responder contract that receives triggers.
+- `drosera.toml` — Deployment and configuration file.
 
 ---
 
 ## Detection Logic
 
-The trap's core monitoring logic is in the deterministic `shouldRespond()` function:
+The trap’s deterministic monitoring logic is implemented in `shouldRespond()`:
 
 ```solidity
 function shouldRespond(
     bytes[] calldata data
 ) external pure override returns (bool, bytes memory) {
-
     if (data.length < 2) {
         return (false, bytes(""));
     }
@@ -49,13 +63,3 @@ function shouldRespond(
 
     return (false, bytes(""));
 }
-🧪 Implementation Details and Key Concepts
-Monitoring Target: Watching changes in token total supply at address 0xFba1bc0E3d54D71Ba55da7C03c7f63D4641921B1.
-Deterministic Logic: Operators execute the logic off-chain to achieve consensus before triggering.
-Thresholds: Uses a fixed 10 ether delta threshold to determine if the trap should trigger.
-Response Mechanism: On trigger, the trap calls the external SimpleResponder contract, passing the detected delta.
-Test It
-To verify the trap logic using Foundry, run:
-Copy code
-Bash
-forge test --match-contract FeeAnomalyTrap

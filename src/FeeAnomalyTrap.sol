@@ -21,8 +21,16 @@ contract FeeAnomalyTrap is ITrap {
     constructor() {}
 
     function collect() external view override returns (bytes memory) {
-        uint256 fees = IERC20(TOKEN).totalSupply();
-        return abi.encode(CollectOutput({ feeAmount: fees }));
+
+        uint256 supply;
+
+        try IERC20(TOKEN).totalSupply() returns (uint256 s) {
+            supply = s;
+        } catch {
+            supply = 0;
+        }
+
+        return abi.encode(CollectOutput({ feeAmount: supply }));
     }
 
     function shouldRespond(
@@ -33,22 +41,21 @@ contract FeeAnomalyTrap is ITrap {
             return (false, bytes(""));
         }
 
-        // data[0] = current block
-        // data[1] = previous block
         CollectOutput memory curr =
             abi.decode(data[0], (CollectOutput));
         CollectOutput memory prev =
             abi.decode(data[1], (CollectOutput));
 
-        // check if there is an increase first
+        uint256 delta;
+
         if (curr.feeAmount > prev.feeAmount) {
+            delta = curr.feeAmount - prev.feeAmount;
+        } else {
+            delta = prev.feeAmount - curr.feeAmount;
+        }
 
-            uint256 delta = curr.feeAmount - prev.feeAmount;
-
-            // trigger if increase is above threshold
-            if (delta > FEE_THRESHOLD) {
-                return (true, abi.encode(delta));
-            }
+        if (delta > FEE_THRESHOLD) {
+            return (true, abi.encode(delta));
         }
 
         return (false, bytes(""));
